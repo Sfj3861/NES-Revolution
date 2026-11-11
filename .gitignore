@@ -1,0 +1,28 @@
+# Build output
+/build/
+/cmake-build-*/
+/out/
+/.gradle/
+/.idea/
+/.externalNativeBuild/
+/.cxx/
+
+# Android / Gradle
+local.properties
+*.iml
+captures/
+.externalNativeBuild/
+
+# Native artifacts
+*.o
+*.a
+*.so
+*.dll
+*.dylib
+*.exe
+*.class
+
+# IDE and OS
+.DS_Store
+Thumbs.db
+.vscode/
