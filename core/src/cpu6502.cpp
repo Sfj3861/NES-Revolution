@@ -87,6 +87,7 @@ bool Cpu6502::step() noexcept {
         const auto hi = bus_.read(static_cast<std::uint8_t>(p + 1));
         return static_cast<std::uint16_t>(lo | (static_cast<std::uint16_t>(hi) << 8));
     };
+    bool indirect_y_crossed = false;
     const auto indy = [this, &indirect_y_crossed]() noexcept {
         const auto p = fetch();
         const auto lo = bus_.read(p);
@@ -96,7 +97,6 @@ bool Cpu6502::step() noexcept {
         indirect_y_crossed = (base & 0xFF00) != (result & 0xFF00);
         return result;
     };
-    bool indirect_y_crossed = false;
     const auto page_crossed = [](std::uint16_t a, std::uint16_t b) noexcept { return (a & 0xFF00) != (b & 0xFF00); };
     switch (op) {
     case 0xEA: cost=2; break; // NOP
