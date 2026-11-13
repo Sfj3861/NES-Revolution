@@ -232,11 +232,9 @@ bool Cpu6502::step() noexcept {
     case 0xEC: compare(state_.x,bus_.read(fetch16())); cost=4; break;
     case 0xC4: compare(state_.y,bus_.read(zp())); cost=3; break;
     case 0xCC: compare(state_.y,bus_.read(fetch16())); cost=4; break;
-    case 0xE6+0x10: address=zpx(); value=static_cast<std::uint8_t>(bus_.read(address)+1); bus_.write(address,value); set_nz(value); cost=6; break;
     case 0xEE: address=fetch16(); value=static_cast<std::uint8_t>(bus_.read(address)+1); bus_.write(address,value); set_nz(value); cost=6; break;
     case 0xF6: address=zpx(); value=static_cast<std::uint8_t>(bus_.read(address)+1); bus_.write(address,value); set_nz(value); cost=6; break;
     case 0xFE: address=absx(); value=static_cast<std::uint8_t>(bus_.read(address)+1); bus_.write(address,value); set_nz(value); cost=7; break;
-    case 0xC6+0x10: address=zpx(); value=static_cast<std::uint8_t>(bus_.read(address)-1); bus_.write(address,value); set_nz(value); cost=6; break;
     case 0xCE: address=fetch16(); value=static_cast<std::uint8_t>(bus_.read(address)-1); bus_.write(address,value); set_nz(value); cost=6; break;
     case 0xD6: address=zpx(); value=static_cast<std::uint8_t>(bus_.read(address)-1); bus_.write(address,value); set_nz(value); cost=6; break;
     case 0xDE: address=absx(); value=static_cast<std::uint8_t>(bus_.read(address)-1); bus_.write(address,value); set_nz(value); cost=7; break;
