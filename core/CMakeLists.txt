@@ -2,6 +2,7 @@ add_library(nesrev_core STATIC
     src/cartridge.cpp
     src/controller.cpp
     src/input_queue.cpp
+    src/cpu6502.cpp
 )
 
 target_include_directories(nesrev_core
