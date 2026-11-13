@@ -87,12 +87,16 @@ bool Cpu6502::step() noexcept {
         const auto hi = bus_.read(static_cast<std::uint8_t>(p + 1));
         return static_cast<std::uint16_t>(lo | (static_cast<std::uint16_t>(hi) << 8));
     };
-    const auto indy = [this]() noexcept {
+    const auto indy = [this, &indirect_y_crossed]() noexcept {
         const auto p = fetch();
         const auto lo = bus_.read(p);
         const auto hi = bus_.read(static_cast<std::uint8_t>(p + 1));
-        return static_cast<std::uint16_t>((lo | (static_cast<std::uint16_t>(hi) << 8)) + state_.y);
+        const auto base = static_cast<std::uint16_t>(lo | (static_cast<std::uint16_t>(hi) << 8));
+        const auto result = static_cast<std::uint16_t>(base + state_.y);
+        indirect_y_crossed = (base & 0xFF00) != (result & 0xFF00);
+        return result;
     };
+    bool indirect_y_crossed = false;
     const auto page_crossed = [](std::uint16_t a, std::uint16_t b) noexcept { return (a & 0xFF00) != (b & 0xFF00); };
     switch (op) {
     case 0xEA: cost=2; break; // NOP
@@ -169,8 +173,7 @@ bool Cpu6502::step() noexcept {
     case 0xBC: { const auto base=fetch16(); address=static_cast<std::uint16_t>(base+state_.x); state_.y=bus_.read(address); set_nz(state_.y); cost=static_cast<std::uint8_t>(4+(page_crossed(base,address)?1:0)); break; }
     case 0xB5: state_.a=bus_.read(zpx()); set_nz(state_.a); cost=4; break;
     case 0xA1: state_.a=bus_.read(indx()); set_nz(state_.a); cost=6; break;
-    case 0xB1: { const auto base=static_cast<std::uint16_t>(bus_.read(static_cast<std::uint8_t>(bus_.read(static_cast<std::uint8_t>(0))))); (void)base; address=indy(); state_.a=bus_.read(address); set_nz(state_.a); cost=5; break; }
-    case 0xB2: break; // 2A03 has no 65C02 zero-page-indirect mode; reserved.
+    case 0xB1: address=indy(); state_.a=bus_.read(address); set_nz(state_.a); cost=static_cast<std::uint8_t>(5+(indirect_y_crossed?1:0)); break;
     case 0xA3: state_.a=bus_.read(indx()); state_.x=state_.a; set_nz(state_.a); cost=6; break; // unofficial LAX
     case 0xA7: state_.a=bus_.read(zp()); state_.x=state_.a; set_nz(state_.a); cost=3; break;
     case 0xAF: state_.a=bus_.read(fetch16()); state_.x=state_.a; set_nz(state_.a); cost=4; break;
@@ -184,55 +187,51 @@ bool Cpu6502::step() noexcept {
     case 0x94: bus_.write(zpx(),state_.y); cost=4; break;
     case 0x8C: bus_.write(fetch16(),state_.y); cost=4; break;
     case 0xA4: state_.y=bus_.read(zp()); set_nz(state_.y); cost=3; break;
-    case 0xA5+0x10: state_.a=bus_.read(zpx()); set_nz(state_.a); cost=4; break;
-    case 0x69+0x10: address=zp(); adc(bus_.read(address)); cost=3; break;
     case 0x7D: { const auto base=fetch16(); address=static_cast<std::uint16_t>(base+state_.x); adc(bus_.read(address)); cost=static_cast<std::uint8_t>(4+(page_crossed(base,address)?1:0)); break; }
     case 0x79: { const auto base=fetch16(); address=static_cast<std::uint16_t>(base+state_.y); adc(bus_.read(address)); cost=static_cast<std::uint8_t>(4+(page_crossed(base,address)?1:0)); break; }
     case 0x65: adc(bus_.read(zp())); cost=3; break;
     case 0x75: adc(bus_.read(zpx())); cost=4; break;
     case 0x61: adc(bus_.read(indx())); cost=6; break;
-    case 0x71: address=indy(); adc(bus_.read(address)); cost=5; break;
+    case 0x71: address=indy(); adc(bus_.read(address)); cost=static_cast<std::uint8_t>(5+(indirect_y_crossed?1:0)); break;
     case 0xE5: value=bus_.read(zp()); adc(static_cast<std::uint8_t>(~value)); cost=3; break;
     case 0xF5: value=bus_.read(zpx()); adc(static_cast<std::uint8_t>(~value)); cost=4; break;
     case 0xED: value=bus_.read(fetch16()); adc(static_cast<std::uint8_t>(~value)); cost=4; break;
     case 0xFD: address=absx(); adc(static_cast<std::uint8_t>(~bus_.read(address))); cost=4; break;
     case 0xF9: address=absy(); adc(static_cast<std::uint8_t>(~bus_.read(address))); cost=4; break;
     case 0xE1: adc(static_cast<std::uint8_t>(~bus_.read(indx()))); cost=6; break;
-    case 0xF1: adc(static_cast<std::uint8_t>(~bus_.read(indy()))); cost=5; break;
+    case 0xF1: address=indy(); adc(static_cast<std::uint8_t>(~bus_.read(address))); cost=static_cast<std::uint8_t>(5+(indirect_y_crossed?1:0)); break;
     case 0x25: state_.a &= bus_.read(zp()); set_nz(state_.a); cost=3; break;
     case 0x35: state_.a &= bus_.read(zpx()); set_nz(state_.a); cost=4; break;
     case 0x2D: state_.a &= bus_.read(fetch16()); set_nz(state_.a); cost=4; break;
     case 0x3D: address=absx(); state_.a &= bus_.read(address); set_nz(state_.a); cost=4; break;
     case 0x39: address=absy(); state_.a &= bus_.read(address); set_nz(state_.a); cost=4; break;
     case 0x21: state_.a &= bus_.read(indx()); set_nz(state_.a); cost=6; break;
-    case 0x31: state_.a &= bus_.read(indy()); set_nz(state_.a); cost=5; break;
+    case 0x31: address=indy(); state_.a &= bus_.read(address); set_nz(state_.a); cost=static_cast<std::uint8_t>(5+(indirect_y_crossed?1:0)); break;
     case 0x05: state_.a |= bus_.read(zp()); set_nz(state_.a); cost=3; break;
     case 0x15: state_.a |= bus_.read(zpx()); set_nz(state_.a); cost=4; break;
     case 0x0D: state_.a |= bus_.read(fetch16()); set_nz(state_.a); cost=4; break;
     case 0x1D: address=absx(); state_.a |= bus_.read(address); set_nz(state_.a); cost=4; break;
     case 0x19: address=absy(); state_.a |= bus_.read(address); set_nz(state_.a); cost=4; break;
     case 0x01: state_.a |= bus_.read(indx()); set_nz(state_.a); cost=6; break;
-    case 0x11: state_.a |= bus_.read(indy()); set_nz(state_.a); cost=5; break;
+    case 0x11: address=indy(); state_.a |= bus_.read(address); set_nz(state_.a); cost=static_cast<std::uint8_t>(5+(indirect_y_crossed?1:0)); break;
     case 0x45: state_.a ^= bus_.read(zp()); set_nz(state_.a); cost=3; break;
     case 0x55: state_.a ^= bus_.read(zpx()); set_nz(state_.a); cost=4; break;
     case 0x4D: state_.a ^= bus_.read(fetch16()); set_nz(state_.a); cost=4; break;
     case 0x5D: address=absx(); state_.a ^= bus_.read(address); set_nz(state_.a); cost=4; break;
     case 0x59: address=absy(); state_.a ^= bus_.read(address); set_nz(state_.a); cost=4; break;
     case 0x41: state_.a ^= bus_.read(indx()); set_nz(state_.a); cost=6; break;
-    case 0x51: state_.a ^= bus_.read(indy()); set_nz(state_.a); cost=5; break;
+    case 0x51: address=indy(); state_.a ^= bus_.read(address); set_nz(state_.a); cost=static_cast<std::uint8_t>(5+(indirect_y_crossed?1:0)); break;
     case 0xC5: compare(state_.a,bus_.read(zp())); cost=3; break;
     case 0xD5: compare(state_.a,bus_.read(zpx())); cost=4; break;
     case 0xCD: compare(state_.a,bus_.read(fetch16())); cost=4; break;
     case 0xDD: address=absx(); compare(state_.a,bus_.read(address)); cost=4; break;
     case 0xD9: address=absy(); compare(state_.a,bus_.read(address)); cost=4; break;
     case 0xC1: compare(state_.a,bus_.read(indx())); cost=6; break;
-    case 0xD1: compare(state_.a,bus_.read(indy())); cost=5; break;
+    case 0xD1: address=indy(); compare(state_.a,bus_.read(address)); cost=static_cast<std::uint8_t>(5+(indirect_y_crossed?1:0)); break;
     case 0xE4: compare(state_.x,bus_.read(zp())); cost=3; break;
     case 0xEC: compare(state_.x,bus_.read(fetch16())); cost=4; break;
     case 0xC4: compare(state_.y,bus_.read(zp())); cost=3; break;
     case 0xCC: compare(state_.y,bus_.read(fetch16())); cost=4; break;
-    case 0xE0+0x04: state_.x=static_cast<std::uint8_t>(state_.x-1); set_nz(state_.x); cost=2; break; // DEX
-    case 0xC0+0x08: state_.y=static_cast<std::uint8_t>(state_.y-1); set_nz(state_.y); cost=2; break; // DEY
     case 0xE6+0x10: address=zpx(); value=static_cast<std::uint8_t>(bus_.read(address)+1); bus_.write(address,value); set_nz(value); cost=6; break;
     case 0xEE: address=fetch16(); value=static_cast<std::uint8_t>(bus_.read(address)+1); bus_.write(address,value); set_nz(value); cost=6; break;
     case 0xF6: address=zpx(); value=static_cast<std::uint8_t>(bus_.read(address)+1); bus_.write(address,value); set_nz(value); cost=6; break;
@@ -255,7 +254,6 @@ bool Cpu6502::step() noexcept {
     case 0x26: address=zp(); value=bus_.read(address); { const bool c=flag(C); set_flag(C,(value&0x80)!=0); value=static_cast<std::uint8_t>((value<<1)|(c?1:0)); } bus_.write(address,value); set_nz(value); cost=5; break;
     case 0x6A: { const bool c=flag(C); set_flag(C,(state_.a&1)!=0); state_.a=static_cast<std::uint8_t>((state_.a>>1)|(c?0x80:0)); set_nz(state_.a); cost=2; break; }
     case 0x66: address=zp(); value=bus_.read(address); { const bool c=flag(C); set_flag(C,(value&1)!=0); value=static_cast<std::uint8_t>((value>>1)|(c?0x80:0)); } bus_.write(address,value); set_nz(value); cost=5; break;
-    case 0xE9+0x10: state_.a=static_cast<std::uint8_t>(state_.a); set_nz(state_.a); cost=2; break; // placeholder avoided below
     default: state_.pc=start; return false;
     }
     state_.status |= U;
