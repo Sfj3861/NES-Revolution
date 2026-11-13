@@ -60,9 +60,9 @@ The first tests exercise the cartridge header parser and controller event path. 
 - `android/`: Android application (to be added).
 - `docs/`: architecture notes and development roadmap.
 
-## Open source and licensing
+## License
 
-The repository is public. A specific open-source license has **not yet been selected**; until a license file is added, normal copyright applies. Do not assume the code is MIT, GPL, Apache-2.0, or otherwise licensed for reuse.
+NES Revolution is licensed under the **MIT License**. See [LICENSE](LICENSE) for the complete license text. The copyright notice is attributed to Sfj3861, 2026.
 
 ## Legal note
 
