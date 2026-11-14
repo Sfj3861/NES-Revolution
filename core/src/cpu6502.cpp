@@ -3,17 +3,71 @@
 namespace nesrev {
 
 std::uint8_t CpuBus::read(std::uint16_t address) const noexcept {
-    if (address < 0x2000) return ram_[address & 0x07FF];
+    if (address < 0x2000U) {
+        return ram_[address & 0x07FFU];
+    }
+    if (address < 0x4000U) {
+        return memory_[0x2000U + (address & 0x0007U)];
+    }
+    if (address >= 0x6000U && address < 0x8000U) {
+        return prg_ram_[address - 0x6000U];
+    }
+    if (address >= 0x8000U && mapper0_.loaded()) {
+        return mapper0_.cpu_read(address);
+    }
     return memory_[address];
 }
+
 void CpuBus::write(std::uint16_t address, std::uint8_t value) noexcept {
-    if (address < 0x2000) ram_[address & 0x07FF] = value;
-    else memory_[address] = value;
+    if (address < 0x2000U) {
+        ram_[address & 0x07FFU] = value;
+        return;
+    }
+    if (address < 0x4000U) {
+        memory_[0x2000U + (address & 0x0007U)] = value;
+        return;
+    }
+    if (address >= 0x6000U && address < 0x8000U) {
+        prg_ram_[address - 0x6000U] = value;
+        return;
+    }
+    if (address >= 0x8000U && mapper0_.loaded()) {
+        mapper0_.cpu_write(address, value);
+        return;
+    }
+    memory_[address] = value;
 }
+
 void CpuBus::load(std::uint16_t address, const std::uint8_t* data, std::uint32_t size) noexcept {
-    for (std::uint32_t i = 0; i < size && static_cast<std::uint32_t>(address) + i < 0x10000U; ++i)
+    if (data == nullptr) {
+        return;
+    }
+    for (std::uint32_t i = 0; i < size && static_cast<std::uint32_t>(address) + i < 0x10000U; ++i) {
         memory_[static_cast<std::uint16_t>(address + i)] = data[i];
+    }
 }
+
+bool CpuBus::insert_cartridge(const CartridgeImage& image) {
+    if (!mapper0_.load(image)) {
+        return false;
+    }
+    prg_ram_.fill(0);
+    return true;
+}
+
+void CpuBus::eject_cartridge() noexcept {
+    mapper0_.unload();
+    prg_ram_.fill(0);
+}
+
+std::uint8_t CpuBus::ppu_read_cartridge(const std::uint16_t address) const noexcept {
+    return mapper0_.ppu_read(address);
+}
+
+void CpuBus::ppu_write_cartridge(const std::uint16_t address, const std::uint8_t value) noexcept {
+    mapper0_.ppu_write(address, value);
+}
+
 void CpuBus::set_reset_vector(std::uint16_t address) noexcept {
     memory_[0xFFFC] = static_cast<std::uint8_t>(address);
     memory_[0xFFFD] = static_cast<std::uint8_t>(address >> 8);

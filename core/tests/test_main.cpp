@@ -38,6 +38,41 @@ int main() {
     assert(controller.read() == 1);
     assert(controller.read() == 0);
 
+    // NROM 16 KiB PRG mirrors at $C000 and CHR ROM is read-only.
+    CartridgeImage nrom;
+    nrom.mapper_id = 0;
+    nrom.mirroring = Mirroring::Vertical;
+    nrom.prg_rom.assign(16U * 1024U, 0xEA);
+    nrom.prg_rom[0] = 0xA9;
+    nrom.prg_rom.back() = 0x5C;
+    nrom.chr_rom.assign(8U * 1024U, 0x31);
+    CpuBus cartridge_bus;
+    assert(cartridge_bus.insert_cartridge(nrom));
+    assert(cartridge_bus.has_cartridge());
+    assert(cartridge_bus.read(0x8000) == 0xA9);
+    assert(cartridge_bus.read(0xC000) == 0xA9);
+    assert(cartridge_bus.read(0xFFFF) == 0x5C);
+    assert(cartridge_bus.cartridge_mirroring() == Mirroring::Vertical);
+    cartridge_bus.write(0x8000, 0x00);
+    assert(cartridge_bus.read(0x8000) == 0xA9);
+    assert(cartridge_bus.ppu_read_cartridge(0x0000) == 0x31);
+    cartridge_bus.ppu_write_cartridge(0x0000, 0x99);
+    assert(cartridge_bus.ppu_read_cartridge(0x0000) == 0x31);
+
+    // CHR-less NROM gets writable 8 KiB CHR RAM.
+    nrom.chr_rom.clear();
+    CpuBus chr_ram_bus;
+    assert(chr_ram_bus.insert_cartridge(nrom));
+    chr_ram_bus.ppu_write_cartridge(0x1FFF, 0xA7);
+    assert(chr_ram_bus.ppu_read_cartridge(0x1FFF) == 0xA7);
+
+    // PRG RAM and PPU register mirroring on the CPU address bus.
+    cartridge_bus.write(0x6000, 0x42);
+    assert(cartridge_bus.read(0x7FFF) == 0x00);
+    assert(cartridge_bus.read(0x6000) == 0x42);
+    cartridge_bus.write(0x2008, 0x77);
+    assert(cartridge_bus.read(0x2000) == 0x77);
+
     // CPU smoke test: LDA #$2A; ADC #$01; STA $0002; INX.
     CpuBus bus;
     const std::array<std::uint8_t, 7> program{0xA9,0x2A,0x69,0x01,0x85,0x02,0xE8};

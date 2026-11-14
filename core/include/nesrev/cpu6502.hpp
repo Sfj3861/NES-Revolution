@@ -1,5 +1,7 @@
 #pragma once
 
+#include "nesrev/mapper0.hpp"
+
 #include <array>
 #include <cstdint>
 
@@ -11,6 +13,12 @@ public:
     std::uint8_t read(std::uint16_t address) const noexcept;
     void write(std::uint16_t address, std::uint8_t value) noexcept;
     void load(std::uint16_t address, const std::uint8_t* data, std::uint32_t size) noexcept;
+    [[nodiscard]] bool insert_cartridge(const CartridgeImage& image);
+    void eject_cartridge() noexcept;
+    [[nodiscard]] bool has_cartridge() const noexcept { return mapper0_.loaded(); }
+    [[nodiscard]] std::uint8_t ppu_read_cartridge(std::uint16_t address) const noexcept;
+    void ppu_write_cartridge(std::uint16_t address, std::uint8_t value) noexcept;
+    [[nodiscard]] Mirroring cartridge_mirroring() const noexcept { return mapper0_.mirroring(); }
     void set_reset_vector(std::uint16_t address) noexcept;
     void set_irq_vector(std::uint16_t address) noexcept;
     void set_nmi_vector(std::uint16_t address) noexcept;
