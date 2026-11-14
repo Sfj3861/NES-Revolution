@@ -1,4 +1,4 @@
-#include "nesrev/cpu6502.hpp"
+#include "nesrev/cpu6502.hpp"\n#include "nesrev/ppu2c02.hpp"
 
 namespace nesrev {
 
@@ -7,7 +7,9 @@ std::uint8_t CpuBus::read(std::uint16_t address) const noexcept {
         return ram_[address & 0x07FFU];
     }
     if (address < 0x4000U) {
-        return memory_[0x2000U + (address & 0x0007U)];
+        return ppu_ != nullptr
+            ? ppu_->cpu_read(static_cast<std::uint16_t>(0x2000U + (address & 0x0007U)))
+            : memory_[0x2000U + (address & 0x0007U)];
     }
     if (address >= 0x6000U && address < 0x8000U) {
         return prg_ram_[address - 0x6000U];
@@ -24,7 +26,11 @@ void CpuBus::write(std::uint16_t address, std::uint8_t value) noexcept {
         return;
     }
     if (address < 0x4000U) {
-        memory_[0x2000U + (address & 0x0007U)] = value;
+        if (ppu_ != nullptr) {
+            ppu_->cpu_write(static_cast<std::uint16_t>(0x2000U + (address & 0x0007U)), value);
+        } else {
+            memory_[0x2000U + (address & 0x0007U)] = value;
+        }
         return;
     }
     if (address >= 0x6000U && address < 0x8000U) {
@@ -66,6 +72,16 @@ std::uint8_t CpuBus::ppu_read_cartridge(const std::uint16_t address) const noexc
 
 void CpuBus::ppu_write_cartridge(const std::uint16_t address, const std::uint8_t value) noexcept {
     mapper0_.ppu_write(address, value);
+}
+
+void CpuBus::tick_cpu_cycles(const std::uint32_t cycles) noexcept {
+    if (ppu_ != nullptr) {
+        ppu_->clock_cpu_cycles(cycles);
+    }
+}
+
+bool CpuBus::consume_ppu_nmi() noexcept {
+    return ppu_ != nullptr && ppu_->consume_nmi();
 }
 
 void CpuBus::set_reset_vector(std::uint16_t address) noexcept {
@@ -110,6 +126,7 @@ void Cpu6502::interrupt(std::uint16_t vector, bool is_brk) noexcept {
     state_.pc = static_cast<std::uint16_t>(bus_.read(vector) |
         (static_cast<std::uint16_t>(bus_.read(static_cast<std::uint16_t>(vector + 1))) << 8));
     state_.cycles += 7;
+    bus_.tick_cpu_cycles(7);
 }
 void Cpu6502::adc(std::uint8_t v) noexcept {
     const auto sum = static_cast<std::uint16_t>(state_.a) + v + (flag(C) ? 1U : 0U);
@@ -123,6 +140,9 @@ void Cpu6502::compare(std::uint8_t lhs, std::uint8_t rhs) noexcept {
 }
 
 bool Cpu6502::step() noexcept {
+    if (bus_.consume_ppu_nmi()) {
+        nmi_pending_ = true;
+    }
     if (nmi_pending_) { nmi_pending_ = false; interrupt(0xFFFA, false); return true; }
     if (irq_line_ && !flag(I)) { interrupt(0xFFFE, false); return true; }
     const auto start = state_.pc;
@@ -317,6 +337,7 @@ bool Cpu6502::step() noexcept {
     }
     state_.status |= U;
     state_.cycles += cost;
+    bus_.tick_cpu_cycles(cost);
     return true;
 }
 

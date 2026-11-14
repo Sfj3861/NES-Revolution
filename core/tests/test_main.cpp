@@ -1,7 +1,7 @@
 #include "nesrev/cartridge.hpp"
 #include "nesrev/controller.hpp"
 #include "nesrev/cpu6502.hpp"
-#include "nesrev/input_queue.hpp"
+#include "nesrev/input_queue.hpp"\n#include "nesrev/ppu2c02.hpp"
 
 #include <array>
 #include <cassert>
@@ -72,6 +72,39 @@ int main() {
     assert(cartridge_bus.read(0x6000) == 0x42);
     cartridge_bus.write(0x2008, 0x77);
     assert(cartridge_bus.read(0x2000) == 0x77);
+
+    // PPU nametable mirroring, palette aliases, CHR RAM and CPU registers.
+    Ppu2C02 ppu(chr_ram_bus.mapper0());
+    ppu.ppu_write(0x2000, 0x12);
+    assert(ppu.ppu_read(0x2400) == 0x12); // Vertical mirroring
+    ppu.ppu_write(0x3F00, 0x2A);
+    assert(ppu.ppu_read(0x3F10) == 0x2A); // Universal background palette alias
+    ppu.cpu_write(0x2006, 0x20);
+    ppu.cpu_write(0x2006, 0x00);
+    ppu.cpu_write(0x2007, 0x66);
+    assert(ppu.ppu_read(0x2000) == 0x66);
+    ppu.cpu_write(0x2000, 0x80);
+    while (ppu.scanline() != 241U || ppu.dot() != 1U) ppu.clock();
+    ppu.clock();
+    assert((ppu.cpu_read(0x2002) & 0x80U) != 0);
+    assert(ppu.consume_nmi());
+
+    // CPU bus forwards PPU register reads/writes and advances three PPU dots
+    // for every CPU cycle.
+    CpuBus ppu_bus;
+    CartridgeImage chr_ram_cart;
+    chr_ram_cart.mapper_id = 0;
+    chr_ram_cart.prg_rom.assign(16U * 1024U, 0xEA);
+    assert(ppu_bus.insert_cartridge(chr_ram_cart));
+    Ppu2C02 connected_ppu(ppu_bus.mapper0());
+    ppu_bus.attach_ppu(&connected_ppu);
+    ppu_bus.write(0x2006, 0x20);
+    ppu_bus.write(0x2006, 0x00);
+    ppu_bus.write(0x2007, 0xA5);
+    assert(connected_ppu.ppu_read(0x2000) == 0xA5);
+    const auto initial_dot = connected_ppu.dot();
+    ppu_bus.tick_cpu_cycles(2);
+    assert(connected_ppu.dot() == initial_dot + 6U);
 
     // CPU smoke test: LDA #$2A; ADC #$01; STA $0002; INX.
     CpuBus bus;

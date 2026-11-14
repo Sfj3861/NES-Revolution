@@ -5,7 +5,7 @@
 #include <array>
 #include <cstdint>
 
-namespace nesrev {
+namespace nesrev {\n\nclass Ppu2C02;
 
 // Minimal 2A03 CPU bus. Internal RAM is mirrored through $0000-$1FFF.
 class CpuBus {
@@ -15,7 +15,7 @@ public:
     void load(std::uint16_t address, const std::uint8_t* data, std::uint32_t size) noexcept;
     [[nodiscard]] bool insert_cartridge(const CartridgeImage& image);
     void eject_cartridge() noexcept;
-    [[nodiscard]] bool has_cartridge() const noexcept { return mapper0_.loaded(); }
+    [[nodiscard]] bool has_cartridge() const noexcept { return mapper0_.loaded(); }\n    [[nodiscard]] Mapper0& mapper0() noexcept { return mapper0_; }\n    void attach_ppu(Ppu2C02* ppu) noexcept { ppu_ = ppu; }\n    void tick_cpu_cycles(std::uint32_t cycles) noexcept;\n    [[nodiscard]] bool consume_ppu_nmi() noexcept;
     [[nodiscard]] std::uint8_t ppu_read_cartridge(std::uint16_t address) const noexcept;
     void ppu_write_cartridge(std::uint16_t address, std::uint8_t value) noexcept;
     [[nodiscard]] Mirroring cartridge_mirroring() const noexcept { return mapper0_.mirroring(); }
@@ -27,7 +27,7 @@ private:
     std::array<std::uint8_t, 0x800> ram_{};
     std::array<std::uint8_t, 0x2000> prg_ram_{};
     std::array<std::uint8_t, 0x10000> memory_{};
-    Mapper0 mapper0_{};
+    Mapper0 mapper0_{};\n    Ppu2C02* ppu_{nullptr};
 };
 
 struct CpuState {
