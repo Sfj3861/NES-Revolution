@@ -1,7 +1,8 @@
 #include "nesrev/cartridge.hpp"
 #include "nesrev/controller.hpp"
 #include "nesrev/cpu6502.hpp"
-#include "nesrev/input_queue.hpp"\n#include "nesrev/ppu2c02.hpp"
+#include "nesrev/input_queue.hpp"
+#include "nesrev/ppu2c02.hpp"
 
 #include <array>
 #include <cassert>
@@ -132,6 +133,7 @@ int main() {
     assert(indexed_cpu.state().a == 0x5A);
     assert(indexed_cpu.state().cycles == 14);
 
-    std::cout << "NES Revolution core tests passed\n";
+    std::cout << "NES Revolution core tests passed
+";
     return 0;
 }

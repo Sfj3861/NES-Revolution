@@ -1,4 +1,5 @@
-#include "nesrev/cpu6502.hpp"\n#include "nesrev/ppu2c02.hpp"
+#include "nesrev/cpu6502.hpp"
+#include "nesrev/ppu2c02.hpp"
 
 namespace nesrev {
 

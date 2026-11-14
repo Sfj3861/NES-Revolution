@@ -4,7 +4,7 @@
 
 NES Revolution aims to combine accurate NES hardware emulation with a modern Android presentation layer. The project prioritizes deterministic emulation, low input latency, stable frame pacing, and optional visual/audio enhancements.
 
-> Current status: **non-playable development build**. The portable C++ core has a first CPU implementation, iNES/NES 2.0 parsing, standard controller logic, NROM (mapper 0) PRG/CHR mapping, and automated build/tests. PPU rendering, APU audio, CPU-to-PPU register behavior, and the Android frontend are not implemented yet.
+> Current status: **non-playable development build**. The portable C++ core has a first CPU implementation, iNES/NES 2.0 parsing, standard controller logic, NROM (mapper 0) PRG/CHR mapping, and automated build/tests. The PPU now has CPU-visible registers, nametable and palette memory, NROM CHR access, vblank/NMI timing, and an initial background/sprite renderer. APU audio, full PPU accuracy, and the Android frontend are not implemented yet.
 
 ## Design principles
 
@@ -52,7 +52,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The first tests exercise the cartridge header parser and controller event path. They are foundation tests, not a compatibility test suite.
+The tests cover cartridge parsing, controller input, CPU smoke execution and indexed timing, NROM mapping, PPU memory/register behavior, and CPU-to-PPU clock integration. They are foundation tests, not a compatibility test suite.
 
 ## Repository layout
 
@@ -72,7 +72,7 @@ NES Revolution will not bundle commercial game ROMs, BIOS files, or copyrighted 
 
 1. Portable core foundation and automated tests.
 2. CPU bus, RAM and 2A03 instruction/cycle implementation (in progress).
-3. PPU timing and rendering.
+3. PPU timing and rendering (initial implementation in progress).
 4. APU and audio backend.
 5. Mapper framework and cartridge compatibility (NROM initial implementation).
 6. Android application, input devices and display integration.
