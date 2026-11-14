@@ -27,13 +27,11 @@ class MainActivity : Activity() {
     private val keyPreferences by lazy { getSharedPreferences("controller_keys", MODE_PRIVATE) }
     private val buttonKeys by lazy { IntArray(8) { keyPreferences.getInt("key_$it", DEFAULT_KEYS[it]) } }
 
-    // 1 = capture the key being replaced; 2 = capture its replacement.
-    private var keyCaptureMode = 0
-    private var pendingActionIndex = -1
-    private var capturedOldKey: Int? = null
+    private var selectedButtonIndex = 0
+    private var capturingKeyboardKey = false
     private var keyDialog: AlertDialog? = null
-    private var oldKeyButton: Button? = null
-    private var newKeyButton: Button? = null
+    private var consoleButton: Button? = null
+    private var keyboardButton: Button? = null
 
     private val frameLoop = object : Runnable {
         override fun run() {
@@ -207,110 +205,76 @@ class MainActivity : Activity() {
     }
 
     private fun showKeyConfiguration() {
-        AlertDialog.Builder(this)
-            .setTitle("¿Qué botón de NES quieres configurar?")
-            .setItems(BUTTON_NAMES) { _, index -> showKeyMappingDialog(index) }
-            .setNegativeButton("Cerrar", null)
-            .show()
-    }
-
-    private fun showKeyMappingDialog(actionIndex: Int) {
-        pendingActionIndex = actionIndex
-        capturedOldKey = null
-        keyCaptureMode = 0
+        selectedButtonIndex = 0
+        capturingKeyboardKey = false
 
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(12), dp(20), dp(4))
         }
         val explanation = TextView(this).apply {
-            text = "Primero selecciona la tecla actual que quieres sustituir. Después elige la nueva tecla que ejecutará \${BUTTON_NAMES[actionIndex]}."
+            text = "Elige primero el botón de la NES y después la tecla del teclado que quieres usar para pulsarlo. Por ejemplo: A = Espacio."
             textSize = 14f
             setTextColor(0xFF202124.toInt())
             setPadding(0, 0, 0, dp(12))
         }
-        oldKeyButton = Button(this).apply {
-            text = "Tecla que sustituye: sin seleccionar"
+        consoleButton = Button(this).apply {
+            text = "Botón de NES: ${BUTTON_NAMES[selectedButtonIndex]}"
             setOnClickListener {
-                keyCaptureMode = 1
-                status.text = "Pulsa la tecla actual que quieres sustituir para \${BUTTON_NAMES[actionIndex]}."
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("¿Qué botón de la NES quieres asignar?")
+                    .setItems(BUTTON_NAMES) { _, index ->
+                        selectedButtonIndex = index
+                        text = "Botón de NES: ${BUTTON_NAMES[index]}"
+                        keyboardButton?.text =
+                            "Tecla del teclado: ${KeyEvent.keyCodeToString(buttonKeys[index])}"
+                    }
+                    .setNegativeButton("Cancelar", null)
+                    .show()
             }
         }
-        newKeyButton = Button(this).apply {
-            text = "Nueva tecla: sin seleccionar"
-            isEnabled = false
+        keyboardButton = Button(this).apply {
+            text = "Tecla del teclado: ${KeyEvent.keyCodeToString(buttonKeys[selectedButtonIndex])}"
             setOnClickListener {
-                if (capturedOldKey == null) {
-                    status.text = "Primero selecciona la tecla que vas a sustituir."
-                } else {
-                    keyCaptureMode = 2
-                    status.text = "Pulsa la nueva tecla para \${BUTTON_NAMES[actionIndex]}."
-                }
+                capturingKeyboardKey = true
+                status.text = "Pulsa ahora la tecla que quieres asignar a ${BUTTON_NAMES[selectedButtonIndex]}."
             }
         }
         panel.addView(explanation)
-        panel.addView(oldKeyButton)
-        panel.addView(newKeyButton)
+        panel.addView(consoleButton)
+        panel.addView(keyboardButton)
 
         keyDialog = AlertDialog.Builder(this)
-            .setTitle("Configurar \${BUTTON_NAMES[actionIndex]}")
+            .setTitle("Configurar controles")
             .setView(panel)
             .setNegativeButton("Cerrar", null)
             .create()
         keyDialog?.setOnDismissListener {
-            keyCaptureMode = 0
-            pendingActionIndex = -1
-            capturedOldKey = null
-            oldKeyButton = null
-            newKeyButton = null
+            capturingKeyboardKey = false
+            consoleButton = null
+            keyboardButton = null
         }
         keyDialog?.show()
     }
 
     private fun captureConfiguredKey(keyCode: Int): Boolean {
-        if (keyCaptureMode == 0 || pendingActionIndex !in buttonKeys.indices) return false
+        if (!capturingKeyboardKey) return false
         if (keyCode == KeyEvent.KEYCODE_BACK) return false
 
-        if (keyCaptureMode == 1) {
-            val mappedAction = keyToButton(keyCode)
-            if (mappedAction != pendingActionIndex) {
-                status.text = "Esa tecla no está asignada a \${BUTTON_NAMES[pendingActionIndex]}. Prueba con \${KeyEvent.keyCodeToString(buttonKeys[pendingActionIndex])}."
-                return true
-            }
-            capturedOldKey = keyCode
-            oldKeyButton?.text = "Tecla que sustituye: \${KeyEvent.keyCodeToString(keyCode)}"
-            newKeyButton?.isEnabled = true
-            keyCaptureMode = 0
-            status.text = "Ahora pulsa «Nueva tecla» y después la tecla que quieras asignar."
+        val alreadyUsedBy = buttonKeys.indices.firstOrNull {
+            it != selectedButtonIndex && buttonKeys[it] == keyCode
+        }
+        if (alreadyUsedBy != null) {
+            status.text = "Esa tecla ya está asignada a ${BUTTON_NAMES[alreadyUsedBy]}. Elige otra."
             return true
         }
 
-        if (keyCaptureMode == 2) {
-            val oldKey = capturedOldKey
-            if (oldKey == null || buttonKeys[pendingActionIndex] != oldKey) {
-                status.text = "La asignación actual ha cambiado. Vuelve a seleccionar la tecla que quieres sustituir."
-                keyCaptureMode = 0
-                capturedOldKey = null
-                return true
-            }
-            val alreadyUsedBy = buttonKeys.indices.firstOrNull {
-                it != pendingActionIndex && buttonKeys[it] == keyCode
-            }
-            if (alreadyUsedBy != null) {
-                status.text = "Esa tecla ya está asignada a \${BUTTON_NAMES[alreadyUsedBy]}. Elige otra."
-                return true
-            }
-            buttonKeys[pendingActionIndex] = keyCode
-            keyPreferences.edit().putInt("key_$pendingActionIndex", keyCode).apply()
-            newKeyButton?.text = "Nueva tecla: \${KeyEvent.keyCodeToString(keyCode)}"
-            keyCaptureMode = 0
-            capturedOldKey = null
-            oldKeyButton?.text = "Tecla que sustituye: sin seleccionar"
-            newKeyButton?.isEnabled = false
-            status.text = "\${BUTTON_NAMES[pendingActionIndex]} ahora usa \${KeyEvent.keyCodeToString(keyCode)}."
-            return true
-        }
-        return false
+        buttonKeys[selectedButtonIndex] = keyCode
+        keyPreferences.edit().putInt("key_$selectedButtonIndex", keyCode).apply()
+        keyboardButton?.text = "Tecla del teclado: ${KeyEvent.keyCodeToString(keyCode)}"
+        capturingKeyboardKey = false
+        status.text = "${BUTTON_NAMES[selectedButtonIndex]} ahora se activa con ${KeyEvent.keyCodeToString(keyCode)}."
+        return true
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -329,7 +293,7 @@ class MainActivity : Activity() {
     private fun keyToButton(keyCode: Int): Int? = buttonKeys.indexOf(keyCode).takeIf { it >= 0 }
 
     override fun onDestroy() {
-        keyCaptureMode = 0
+        capturingKeyboardKey = false
         keyDialog?.dismiss()
         stopEmulation()
         if (::emulationThread.isInitialized) emulationThread.quitSafely()
