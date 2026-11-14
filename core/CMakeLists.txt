@@ -1,5 +1,6 @@
 add_library(nesrev_core STATIC
-    src/cartridge.cpp\n    src/mapper0.cpp
+    src/cartridge.cpp
+    src/mapper0.cpp
     src/controller.cpp
     src/input_queue.cpp
     src/cpu6502.cpp
