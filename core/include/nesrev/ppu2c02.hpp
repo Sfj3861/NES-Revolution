@@ -39,6 +39,10 @@ private:
     std::array<std::uint8_t, 32> palette_ram_{};
     std::array<std::uint8_t, 256> oam_{};
     std::array<std::uint32_t, Width * Height> framebuffer_{};
+    // Predecoded sprite pixels for the current scanline (0xFF means transparent).
+    std::array<std::uint8_t, Width> sprite_line_palette_{};
+    std::array<std::uint8_t, Width> sprite_line_behind_{};
+    std::array<std::uint8_t, Width> sprite_line_zero_{};
 
     std::uint8_t ctrl_{0};
     std::uint8_t mask_{0};
@@ -60,6 +64,7 @@ private:
     [[nodiscard]] std::uint16_t nametable_index(std::uint16_t address) const noexcept;
     [[nodiscard]] std::uint8_t palette_index(std::uint16_t address) const noexcept;
     void increment_vram_address() noexcept;
+    void prepare_sprite_line(std::uint16_t y) noexcept;
     void render_pixel(std::uint16_t x, std::uint16_t y) noexcept;
     [[nodiscard]] std::uint32_t color(std::uint8_t palette_entry) const noexcept;
 };

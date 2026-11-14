@@ -197,7 +197,64 @@ std::uint32_t Ppu2C02::color(const std::uint8_t palette_entry) const noexcept {
     return kNesPalette[index];
 }
 
+void Ppu2C02::prepare_sprite_line(const std::uint16_t y) noexcept {
+    sprite_line_palette_.fill(0xFFU);
+    sprite_line_behind_.fill(0U);
+    sprite_line_zero_.fill(0U);
+
+    if ((mask_ & 0x10U) == 0) return;
+
+    const auto sprite_height = static_cast<std::uint16_t>((ctrl_ & 0x20U) != 0 ? 16U : 8U);
+    for (std::uint8_t i = 0; i < 64U; ++i) {
+        const auto base = static_cast<std::uint16_t>(i) * 4U;
+        const auto top = static_cast<std::uint16_t>(oam_[base]) + 1U;
+        if (y < top || y >= top + sprite_height) continue;
+
+        const auto attributes = oam_[base + 2U];
+        auto row = static_cast<std::uint8_t>(y - top);
+        if ((attributes & 0x80U) != 0) {
+            row = static_cast<std::uint8_t>(sprite_height - 1U - row);
+        }
+
+        std::uint16_t pattern_address = 0;
+        if (sprite_height == 16U) {
+            const auto tile = static_cast<std::uint8_t>(oam_[base + 1U] & 0xFEU);
+            const auto table_base = (oam_[base + 1U] & 1U) != 0 ? 0x1000U : 0x0000U;
+            pattern_address = static_cast<std::uint16_t>(table_base +
+                (tile + (row / 8U)) * 16U + (row & 7U));
+        } else {
+            const auto table_base = (ctrl_ & 0x08U) != 0 ? 0x1000U : 0x0000U;
+            pattern_address = static_cast<std::uint16_t>(
+                table_base + oam_[base + 1U] * 16U + row);
+        }
+
+        const auto low = ppu_read(pattern_address);
+        const auto high = ppu_read(static_cast<std::uint16_t>(pattern_address + 8U));
+        const auto left = static_cast<std::uint16_t>(oam_[base + 3U]);
+        const auto palette = static_cast<std::uint8_t>(attributes & 0x03U);
+        const auto palette_base = static_cast<std::uint16_t>(0x3F10U + palette * 4U);
+        for (std::uint8_t column = 0; column < 8U; ++column) {
+            const auto screen_x = static_cast<std::uint16_t>(left + column);
+            if (screen_x >= Width || sprite_line_palette_[screen_x] != 0xFFU) continue;
+            const auto source_column = static_cast<std::uint8_t>(
+                (attributes & 0x40U) != 0 ? 7U - column : column);
+            const auto bit = static_cast<std::uint8_t>(7U - source_column);
+            const auto pixel = static_cast<std::uint8_t>(
+                ((low >> bit) & 1U) | (((high >> bit) & 1U) << 1U));
+            if (pixel == 0U) continue;
+
+            sprite_line_palette_[screen_x] = ppu_read(
+                static_cast<std::uint16_t>(palette_base + pixel));
+            sprite_line_behind_[screen_x] = static_cast<std::uint8_t>(
+                (attributes & 0x20U) != 0 ? 1U : 0U);
+            sprite_line_zero_[screen_x] = static_cast<std::uint8_t>(i == 0U ? 1U : 0U);
+        }
+    }
+}
+
 void Ppu2C02::render_pixel(const std::uint16_t x, const std::uint16_t y) noexcept {
+    if (x == 0U) prepare_sprite_line(y);
+
     const bool show_background = (mask_ & 0x08U) != 0 && (x >= 8U || (mask_ & 0x02U) != 0);
     const bool show_sprites = (mask_ & 0x10U) != 0 && (x >= 8U || (mask_ & 0x04U) != 0);
     std::uint8_t background_pixel = 0;
@@ -238,57 +295,12 @@ void Ppu2C02::render_pixel(const std::uint16_t x, const std::uint16_t y) noexcep
             0x3F00U + background_palette * 4U + background_pixel));
     }
 
-    if (show_sprites) {
-        const auto sprite_height = (ctrl_ & 0x20U) != 0 ? 16U : 8U;
-        for (std::uint8_t i = 0; i < 64U; ++i) {
-            const auto base = static_cast<std::uint16_t>(i) * 4U;
-            const auto top = static_cast<std::uint16_t>(oam_[base]) + 1U;
-            const auto left = static_cast<std::uint16_t>(oam_[base + 3U]);
-            if (y < top || y >= top + sprite_height || x < left || x >= left + 8U) {
-                continue;
-            }
-
-            const auto attributes = oam_[base + 2U];
-            auto row = static_cast<std::uint8_t>(y - top);
-            auto column = static_cast<std::uint8_t>(x - left);
-            if ((attributes & 0x80U) != 0) {
-                row = static_cast<std::uint8_t>(sprite_height - 1U - row);
-            }
-            if ((attributes & 0x40U) != 0) {
-                column = static_cast<std::uint8_t>(7U - column);
-            }
-
-            std::uint16_t pattern_address = 0;
-            if (sprite_height == 16U) {
-                const auto tile = static_cast<std::uint8_t>(oam_[base + 1U] & 0xFEU);
-                const auto table_base = (oam_[base + 1U] & 1U) != 0 ? 0x1000U : 0x0000U;
-                pattern_address = static_cast<std::uint16_t>(table_base +
-                    (tile + (row / 8U)) * 16U + (row & 7U));
-            } else {
-                const auto table_base = (ctrl_ & 0x08U) != 0 ? 0x1000U : 0x0000U;
-                pattern_address = static_cast<std::uint16_t>(table_base +
-                    oam_[base + 1U] * 16U + row);
-            }
-
-            const auto bit = static_cast<std::uint8_t>(7U - column);
-            const auto low = static_cast<std::uint8_t>((ppu_read(pattern_address) >> bit) & 1U);
-            const auto high = static_cast<std::uint8_t>((ppu_read(static_cast<std::uint16_t>(pattern_address + 8U)) >> bit) & 1U);
-            const auto sprite_pixel = static_cast<std::uint8_t>(low | (high << 1U));
-            if (sprite_pixel == 0) {
-                continue;
-            }
-
-            if (i == 0U && background_pixel != 0U && x < 255U) {
-                status_ |= 0x40U;
-            }
-
-            const bool behind_background = (attributes & 0x20U) != 0;
-            if (background_pixel == 0U || !behind_background) {
-                const auto palette = static_cast<std::uint8_t>(attributes & 0x03U);
-                output_color = ppu_read(static_cast<std::uint16_t>(
-                    0x3F10U + palette * 4U + sprite_pixel));
-            }
-            break;
+    if (show_sprites && sprite_line_palette_[x] != 0xFFU) {
+        if (sprite_line_zero_[x] != 0U && background_pixel != 0U && x < 255U) {
+            status_ |= 0x40U;
+        }
+        if (background_pixel == 0U || sprite_line_behind_[x] == 0U) {
+            output_color = sprite_line_palette_[x];
         }
     }
 
@@ -316,6 +328,9 @@ void Ppu2C02::reset() noexcept {
     scanline_ = 0;
     dot_ = 0;
     framebuffer_.fill(kNesPalette[0]);
+    sprite_line_palette_.fill(0xFFU);
+    sprite_line_behind_.fill(0U);
+    sprite_line_zero_.fill(0U);
 }
 
 void Ppu2C02::clock() noexcept {

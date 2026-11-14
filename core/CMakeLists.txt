@@ -19,7 +19,7 @@ target_compile_features(nesrev_core PUBLIC cxx_std_20)
 if(MSVC)
     target_compile_options(nesrev_core PRIVATE /W4 /permissive-)
 else()
-    target_compile_options(nesrev_core PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
+    target_compile_options(nesrev_core PRIVATE -O2 -Wall -Wextra -Wpedantic -Wconversion)
 endif()
 
 if(NESREV_BUILD_TESTS)
