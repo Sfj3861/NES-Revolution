@@ -1,6 +1,6 @@
 #include "nesrev/mapper0.hpp"
 
-#include <algorithm>
+#include <utility>
 
 namespace nesrev {
 

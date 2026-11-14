@@ -25,7 +25,9 @@ public:
 
 private:
     std::array<std::uint8_t, 0x800> ram_{};
+    std::array<std::uint8_t, 0x2000> prg_ram_{};
     std::array<std::uint8_t, 0x10000> memory_{};
+    Mapper0 mapper0_{};
 };
 
 struct CpuState {

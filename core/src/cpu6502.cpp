@@ -310,6 +310,7 @@ bool Cpu6502::step() noexcept {
     case 0x36: address=zpx(); value=bus_.read(address); { const bool c=flag(C); set_flag(C,(value&0x80)!=0); value=static_cast<std::uint8_t>((value<<1)|(c?1:0)); } bus_.write(address,value); set_nz(value); cost=6; break;
     case 0x2E: address=fetch16(); value=bus_.read(address); { const bool c=flag(C); set_flag(C,(value&0x80)!=0); value=static_cast<std::uint8_t>((value<<1)|(c?1:0)); } bus_.write(address,value); set_nz(value); cost=6; break;
     case 0x3E: address=absx(); value=bus_.read(address); { const bool c=flag(C); set_flag(C,(value&0x80)!=0); value=static_cast<std::uint8_t>((value<<1)|(c?1:0)); } bus_.write(address,value); set_nz(value); cost=7; break;
+    case 0x76: address=zpx(); value=bus_.read(address); { const bool c=flag(C); set_flag(C,(value&1)!=0); value=static_cast<std::uint8_t>((value>>1)|(c?0x80:0)); } bus_.write(address,value); set_nz(value); cost=6; break;
     case 0x6E: address=fetch16(); value=bus_.read(address); { const bool c=flag(C); set_flag(C,(value&1)!=0); value=static_cast<std::uint8_t>((value>>1)|(c?0x80:0)); } bus_.write(address,value); set_nz(value); cost=6; break;
     case 0x7E: address=absx(); value=bus_.read(address); { const bool c=flag(C); set_flag(C,(value&1)!=0); value=static_cast<std::uint8_t>((value>>1)|(c?0x80:0)); } bus_.write(address,value); set_nz(value); cost=7; break;
     default: state_.pc=start; return false;
