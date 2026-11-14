@@ -1,3 +1,4 @@
+#include "nesrev/apu2a03.hpp"
 #include "nesrev/cartridge.hpp"
 #include "nesrev/controller.hpp"
 #include "nesrev/cpu6502.hpp"
@@ -134,6 +135,23 @@ int main() {
     assert(indexed_cpu.state().a == 0x5A);
     assert(indexed_cpu.state().cycles == 14);
 
+    // APU pulse channel produces samples after its registers and timer are set.
+    Apu2A03 test_apu(48000U);
+    test_apu.write(0x4015, 0x01);
+    test_apu.write(0x4000, 0x9F);
+    test_apu.write(0x4002, 0x40);
+    test_apu.write(0x4003, 0x08);
+    test_apu.clock_cpu_cycles(40000U);
+    auto audio_samples = test_apu.take_samples();
+    assert(!audio_samples.empty());
+    bool has_nonzero_audio = false;
+    for (const auto sample : audio_samples) {
+        assert(sample >= -1.0F && sample <= 1.0F);
+        if (sample > -0.99F) has_nonzero_audio = true;
+    }
+    assert(has_nonzero_audio);
+    assert(test_apu.take_samples().empty());
+
     // NesMachine loads an NROM ROM, resets the CPU from its cartridge vector,
     // and advances a complete PPU frame.
     std::vector<std::uint8_t> machine_rom(16U + 16U * 1024U, 0);
@@ -150,6 +168,7 @@ int main() {
     assert(machine.cpu_state().cycles > 7U);
     assert(!machine.error().size());
 
-    std::cout << "NES Revolution core tests passed\n";
+    std::cout << "NES Revolution core tests passed
+";
     return 0;
 }

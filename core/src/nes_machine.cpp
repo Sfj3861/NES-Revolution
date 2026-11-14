@@ -7,6 +7,7 @@ namespace nesrev {
 NesMachine::NesMachine() noexcept
     : ppu_(bus_.mapper0()), cpu_(bus_) {
     bus_.attach_ppu(&ppu_);
+    bus_.attach_apu(&apu_);
     bus_.attach_controllers(&controller1_, &controller2_);
 }
 
@@ -59,6 +60,10 @@ bool NesMachine::run_frame() noexcept {
     error_ = "Frame execution limit reached";
     loaded_ = false;
     return false;
+}
+
+std::vector<float> NesMachine::take_audio_samples() {
+    return apu_.take_samples();
 }
 
 void NesMachine::set_controller1(const ControllerState& state) noexcept {

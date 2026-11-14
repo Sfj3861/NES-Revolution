@@ -9,6 +9,7 @@
 namespace nesrev {
 
 class Ppu2C02;
+class Apu2A03;
 
 // Minimal 2A03 CPU bus. Internal RAM is mirrored through $0000-$1FFF.
 class CpuBus {
@@ -21,6 +22,7 @@ public:
     [[nodiscard]] bool has_cartridge() const noexcept { return mapper0_.loaded(); }
     [[nodiscard]] Mapper0& mapper0() noexcept { return mapper0_; }
     void attach_ppu(Ppu2C02* ppu) noexcept { ppu_ = ppu; }
+    void attach_apu(Apu2A03* apu) noexcept { apu_ = apu; }
     void tick_cpu_cycles(std::uint32_t cycles) noexcept;
     [[nodiscard]] bool consume_ppu_nmi() noexcept;
     void attach_controllers(StandardController* first, StandardController* second) noexcept;
@@ -37,6 +39,7 @@ private:
     std::array<std::uint8_t, 0x10000> memory_{};
     Mapper0 mapper0_{};
     Ppu2C02* ppu_{nullptr};
+    Apu2A03* apu_{nullptr};
     StandardController* controller1_{nullptr};
     StandardController* controller2_{nullptr};
 };

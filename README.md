@@ -26,11 +26,11 @@ NES Revolution aims to combine accurate NES hardware emulation with a modern And
 | Controller/input | Timestamped host events and NES serial port | Initial |
 | CPU (Ricoh 2A03) | 6502 instruction execution and cycle timing | Initial; validation ongoing |
 | PPU | Scanline/dot timing, sprites, background and registers | Initial renderer and register/memory implementation |
-| APU | NES audio channels and frame sequencer | Planned |
+| APU | NES audio channels and frame sequencer | Initial pulse/triangle/noise and PCM sample output |
 | Mappers | Cartridge banking and IRQ behavior | NROM / mapper 0 initial implementation |
 | Android frontend | Kotlin, JNI, lifecycle and file picker | Planned |
 | Presentation | OpenGL ES/Vulkan, frame pacing and optional shaders | Framebuffer available in core; Android presentation planned |
-| Audio backend | Low-latency Android audio via Oboe | Planned |
+| Audio backend | Low-latency Android audio via Oboe | Core sample buffer API; Android backend planned |
 | Diagnostics | Tests, profiling and compatibility reports | Planned |
 
 ## Refresh rate is not emulation speed

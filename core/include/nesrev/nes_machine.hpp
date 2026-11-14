@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nesrev/apu2a03.hpp"
 #include "nesrev/controller.hpp"
 #include "nesrev/cpu6502.hpp"
 #include "nesrev/ppu2c02.hpp"
@@ -8,6 +9,7 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <vector>
 
 namespace nesrev {
 
@@ -20,6 +22,7 @@ public:
     [[nodiscard]] bool load_rom(std::span<const std::uint8_t> bytes);
     void unload() noexcept;
     [[nodiscard]] bool run_frame() noexcept;
+    [[nodiscard]] std::vector<float> take_audio_samples();
 
     void set_controller1(const ControllerState& state) noexcept;
     void set_controller2(const ControllerState& state) noexcept;
@@ -34,6 +37,7 @@ private:
     CpuBus bus_;
     Ppu2C02 ppu_;
     Cpu6502 cpu_;
+    Apu2A03 apu_;
     StandardController controller1_;
     StandardController controller2_;
     bool loaded_{false};

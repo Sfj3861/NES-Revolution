@@ -1,5 +1,6 @@
 #include "nesrev/cpu6502.hpp"
 #include "nesrev/ppu2c02.hpp"
+#include "nesrev/apu2a03.hpp"
 
 namespace nesrev {
 
@@ -11,6 +12,9 @@ std::uint8_t CpuBus::read(std::uint16_t address) const noexcept {
         return ppu_ != nullptr
             ? ppu_->cpu_read(static_cast<std::uint16_t>(0x2000U + (address & 0x0007U)))
             : memory_[0x2000U + (address & 0x0007U)];
+    }
+    if (address == 0x4015U && apu_ != nullptr) {
+        return apu_->read_status();
     }
     if (address == 0x4016U && controller1_ != nullptr) {
         return static_cast<std::uint8_t>(0x40U | controller1_->read());
@@ -43,6 +47,10 @@ void CpuBus::write(std::uint16_t address, std::uint8_t value) noexcept {
     if (address == 0x4016U) {
         if (controller1_ != nullptr) controller1_->write_strobe(value);
         if (controller2_ != nullptr) controller2_->write_strobe(value);
+        return;
+    }
+    if (address >= 0x4000U && address <= 0x4017U && apu_ != nullptr) {
+        apu_->write(address, value);
         return;
     }
     if (address >= 0x6000U && address < 0x8000U) {
@@ -89,6 +97,9 @@ void CpuBus::ppu_write_cartridge(const std::uint16_t address, const std::uint8_t
 void CpuBus::tick_cpu_cycles(const std::uint32_t cycles) noexcept {
     if (ppu_ != nullptr) {
         ppu_->clock_cpu_cycles(cycles);
+    }
+    if (apu_ != nullptr) {
+        apu_->clock_cpu_cycles(cycles);
     }
 }
 
