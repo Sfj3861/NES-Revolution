@@ -4,6 +4,7 @@
 #include "nesrev/cpu6502.hpp"
 #include "nesrev/ppu2c02.hpp"
 
+#include <array>
 #include <cstdint>
 #include <span>
 #include <string>

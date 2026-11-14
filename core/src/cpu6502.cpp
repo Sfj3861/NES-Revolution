@@ -1,10 +1,4 @@
-#
-
-void CpuBus::attach_controllers(StandardController* first, StandardController* second) noexcept {
-    controller1_ = first;
-    controller2_ = second;
-}
-include "nesrev/cpu6502.hpp"
+#include "nesrev/cpu6502.hpp"
 #include "nesrev/ppu2c02.hpp"
 
 namespace nesrev {
@@ -101,6 +95,12 @@ void CpuBus::tick_cpu_cycles(const std::uint32_t cycles) noexcept {
 bool CpuBus::consume_ppu_nmi() noexcept {
     return ppu_ != nullptr && ppu_->consume_nmi();
 }
+
+void CpuBus::attach_controllers(StandardController* first, StandardController* second) noexcept {
+    controller1_ = first;
+    controller2_ = second;
+}
+
 
 void CpuBus::set_reset_vector(std::uint16_t address) noexcept {
     memory_[0xFFFC] = static_cast<std::uint8_t>(address);
