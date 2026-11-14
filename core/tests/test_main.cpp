@@ -51,6 +51,19 @@ int main() {
     assert(cpu.step()); assert(cpu.state().x == 1);
     assert(cpu.state().cycles == 16);
 
+    // Indexed reads add one cycle when the effective address crosses a page.
+    CpuBus indexed_bus;
+    const std::array<std::uint8_t, 5> indexed_program{0xA2,0x01,0xBD,0xFF,0x80};
+    indexed_bus.load(0x8000, indexed_program.data(), static_cast<std::uint32_t>(indexed_program.size()));
+    indexed_bus.write(0x8100, 0x5A);
+    indexed_bus.set_reset_vector(0x8000);
+    Cpu6502 indexed_cpu(indexed_bus);
+    indexed_cpu.reset();
+    assert(indexed_cpu.step());
+    assert(indexed_cpu.step());
+    assert(indexed_cpu.state().a == 0x5A);
+    assert(indexed_cpu.state().cycles == 14);
+
     std::cout << "NES Revolution core tests passed\n";
     return 0;
 }
