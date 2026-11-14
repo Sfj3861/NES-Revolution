@@ -1,6 +1,7 @@
 package org.sfj3861.nesrevolution
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.media.AudioAttributes
@@ -23,6 +24,9 @@ class MainActivity : Activity() {
     private lateinit var emulationThread: HandlerThread
     private var audioTrack: AudioTrack? = null
     private var loopRunning = false
+    private val keyPreferences by lazy { getSharedPreferences("controller_keys", MODE_PRIVATE) }
+    private val buttonKeys by lazy { IntArray(8) { keyPreferences.getInt("key_$it", DEFAULT_KEYS[it]) } }
+    private var awaitingKeyFor: Int? = null
 
     private val frameLoop = object : Runnable {
         override fun run() {
@@ -33,7 +37,7 @@ class MainActivity : Activity() {
                 runOnUiThread { gameScreen.setFrame(frame) }
                 val samples = NativeBridge.nativeTakeAudioSamples()
                 if (samples.isNotEmpty()) {
-                    audioTrack?.write(samples, 0, samples.size, AudioTrack.WRITE_NON_BLOCKING)
+                    audioTrack?.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
                 }
             } else if (!NativeBridge.nativeIsLoaded()) {
                 runOnUiThread { status.text = "La ROM se ha detenido. Prueba otro juego NROM." }
@@ -79,6 +83,11 @@ class MainActivity : Activity() {
         top.addView(title)
         top.addView(status, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         top.addView(openButton)
+        val configureKeysButton = Button(this).apply {
+            text = "Teclas"
+            setOnClickListener { showKeyConfiguration() }
+        }
+        top.addView(configureKeysButton)
         root.addView(top, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
         ))
@@ -97,7 +106,7 @@ class MainActivity : Activity() {
             contentDescription = "Controles táctiles de NES"
         }
         root.addView(controls, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(150)
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(176)
         ))
 
         setContentView(root)
@@ -190,7 +199,27 @@ class MainActivity : Activity() {
         super.onPause()
     }
 
+    private fun showKeyConfiguration() {
+        val names = arrayOf("A", "B", "Select", "Start", "Arriba", "Abajo", "Izquierda", "Derecha")
+        AlertDialog.Builder(this)
+            .setTitle("Configurar teclas")
+            .setItems(names) { _, index ->
+                awaitingKeyFor = index
+                status.text = "Pulsa la tecla que quieres asignar a ${names[index]}…"
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        val waiting = awaitingKeyFor
+        if (waiting != null && keyCode != KeyEvent.KEYCODE_BACK) {
+            buttonKeys[waiting] = keyCode
+            keyPreferences.edit().putInt("key_$waiting", keyCode).apply()
+            awaitingKeyFor = null
+            status.text = "${BUTTON_NAMES[waiting]}: ${KeyEvent.keyCodeToString(keyCode)}"
+            return true
+        }
         val button = keyToButton(keyCode) ?: return super.onKeyDown(keyCode, event)
         NativeBridge.nativeSetButton(button, true)
         return true
@@ -202,17 +231,7 @@ class MainActivity : Activity() {
         return true
     }
 
-    private fun keyToButton(keyCode: Int): Int? = when (keyCode) {
-        KeyEvent.KEYCODE_Z, KeyEvent.KEYCODE_BUTTON_A -> 0
-        KeyEvent.KEYCODE_X, KeyEvent.KEYCODE_BUTTON_B -> 1
-        KeyEvent.KEYCODE_SHIFT_LEFT -> 2
-        KeyEvent.KEYCODE_ENTER -> 3
-        KeyEvent.KEYCODE_DPAD_UP -> 4
-        KeyEvent.KEYCODE_DPAD_DOWN -> 5
-        KeyEvent.KEYCODE_DPAD_LEFT -> 6
-        KeyEvent.KEYCODE_DPAD_RIGHT -> 7
-        else -> null
-    }
+    private fun keyToButton(keyCode: Int): Int? = buttonKeys.indexOf(keyCode).takeIf { it >= 0 }
 
     override fun onDestroy() {
         stopEmulation()
@@ -229,5 +248,11 @@ class MainActivity : Activity() {
     companion object {
         private const val REQUEST_OPEN_ROM = 4201
         private const val SAMPLE_RATE = 48000
+        private val BUTTON_NAMES = arrayOf("A", "B", "Select", "Start", "Arriba", "Abajo", "Izquierda", "Derecha")
+        private val DEFAULT_KEYS = intArrayOf(
+            KeyEvent.KEYCODE_Z, KeyEvent.KEYCODE_X, KeyEvent.KEYCODE_SHIFT_LEFT,
+            KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
+            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT
+        )
     }
 }
