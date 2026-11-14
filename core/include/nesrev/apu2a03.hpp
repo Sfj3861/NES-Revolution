@@ -79,6 +79,8 @@ private:
     Triangle triangle_{};
     Noise noise_{};
     std::vector<float> samples_;
+    float previous_mix_input_{0.0F};
+    float previous_filtered_output_{0.0F};
 
     void quarter_frame() noexcept;
     void half_frame() noexcept;

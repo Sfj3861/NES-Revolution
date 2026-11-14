@@ -35,6 +35,8 @@ void Apu2A03::reset() noexcept {
     noise_ = Noise{};
     noise_.shift_register = 1;
     samples_.clear();
+    previous_mix_input_ = 0.0F;
+    previous_filtered_output_ = 0.0F;
 }
 
 void Apu2A03::write(const std::uint16_t address, const std::uint8_t value) noexcept {
@@ -250,7 +252,16 @@ float Apu2A03::mix() const noexcept {
 }
 
 void Apu2A03::emit_sample() noexcept {
-    samples_.push_back((mix() * 2.0F) - 1.0F);
+    // The nonlinear NES mixer is unipolar. Sending (mix * 2 - 1) directly
+    // to PCM made silence become -1.0 (full-scale DC), causing severe pops
+    // and distortion. Remove the DC component with a gentle one-pole
+    // high-pass filter, then scale the useful signal into PCM float range.
+    const float input = mix();
+    const float filtered = input - previous_mix_input_ +
+                           0.995F * previous_filtered_output_;
+    previous_mix_input_ = input;
+    previous_filtered_output_ = filtered;
+    samples_.push_back(std::clamp(filtered * 4.0F, -1.0F, 1.0F));
 }
 
 void Apu2A03::clock_cpu_cycles(const std::uint32_t cycles) noexcept {
