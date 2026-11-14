@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "NES Revolution"
 include(":app")
+project(":app").projectDir = file("android/app")
