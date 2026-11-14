@@ -168,7 +168,6 @@ int main() {
     assert(machine.cpu_state().cycles > 7U);
     assert(!machine.error().size());
 
-    std::cout << "NES Revolution core tests passed
-";
+    std::cout << "NES Revolution core tests passed\n";
     return 0;
 }
