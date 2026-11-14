@@ -87,8 +87,8 @@ int main() {
     ppu.cpu_write(0x2000, 0x80);
     while (ppu.scanline() != 241U || ppu.dot() != 1U) ppu.clock();
     ppu.clock();
-    assert((ppu.cpu_read(0x2002) & 0x80U) != 0);
     assert(ppu.consume_nmi());
+    assert((ppu.cpu_read(0x2002) & 0x80U) != 0);
 
     // CPU bus forwards PPU register reads/writes and advances three PPU dots
     // for every CPU cycle.
@@ -133,7 +133,6 @@ int main() {
     assert(indexed_cpu.state().a == 0x5A);
     assert(indexed_cpu.state().cycles == 14);
 
-    std::cout << "NES Revolution core tests passed
-";
+    std::cout << "NES Revolution core tests passed\n";
     return 0;
 }
