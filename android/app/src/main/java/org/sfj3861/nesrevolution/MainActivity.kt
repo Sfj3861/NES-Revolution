@@ -14,6 +14,7 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import java.io.IOException
 
@@ -28,8 +29,8 @@ class MainActivity : Activity() {
     private val buttonKeys by lazy { IntArray(8) { keyPreferences.getInt("key_$it", DEFAULT_KEYS[it]) } }
 
     private var selectedButtonIndex = 0
-    private var capturingKeyboardKey = false
     private var keyDialog: AlertDialog? = null
+    private var keyPickerDialog: AlertDialog? = null
     private var consoleButton: Button? = null
     private var keyboardButton: Button? = null
 
@@ -206,14 +207,12 @@ class MainActivity : Activity() {
 
     private fun showKeyConfiguration() {
         selectedButtonIndex = 0
-        capturingKeyboardKey = false
-
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(12), dp(20), dp(4))
         }
         val explanation = TextView(this).apply {
-            text = "Elige primero el botón de la NES y después la tecla del teclado que quieres usar para pulsarlo. Por ejemplo: A = Espacio."
+            text = "Selecciona un botón de la NES y asígnale una tecla del teclado virtual. Por ejemplo: A = ESPACIO."
             textSize = 14f
             setTextColor(0xFF202124.toInt())
             setPadding(0, 0, 0, dp(12))
@@ -222,23 +221,19 @@ class MainActivity : Activity() {
             text = "Botón de NES: ${BUTTON_NAMES[selectedButtonIndex]}"
             setOnClickListener {
                 AlertDialog.Builder(this@MainActivity)
-                    .setTitle("¿Qué botón de la NES quieres asignar?")
+                    .setTitle("¿Qué botón de la NES quieres configurar?")
                     .setItems(BUTTON_NAMES) { _, index ->
                         selectedButtonIndex = index
                         text = "Botón de NES: ${BUTTON_NAMES[index]}"
-                        keyboardButton?.text =
-                            "Tecla del teclado: ${KeyEvent.keyCodeToString(buttonKeys[index])}"
+                        keyboardButton?.text = "Tecla asignada: ${keyLabel(buttonKeys[index])}"
                     }
                     .setNegativeButton("Cancelar", null)
                     .show()
             }
         }
         keyboardButton = Button(this).apply {
-            text = "Tecla del teclado: ${KeyEvent.keyCodeToString(buttonKeys[selectedButtonIndex])}"
-            setOnClickListener {
-                capturingKeyboardKey = true
-                status.text = "Pulsa ahora la tecla que quieres asignar a ${BUTTON_NAMES[selectedButtonIndex]}."
-            }
+            text = "Tecla asignada: ${keyLabel(buttonKeys[selectedButtonIndex])}"
+            setOnClickListener { showVirtualKeyboard() }
         }
         panel.addView(explanation)
         panel.addView(consoleButton)
@@ -250,35 +245,94 @@ class MainActivity : Activity() {
             .setNegativeButton("Cerrar", null)
             .create()
         keyDialog?.setOnDismissListener {
-            capturingKeyboardKey = false
+            keyDialog = null
             consoleButton = null
             keyboardButton = null
+            keyPickerDialog?.dismiss()
+            keyPickerDialog = null
         }
         keyDialog?.show()
     }
 
-    private fun captureConfiguredKey(keyCode: Int): Boolean {
-        if (!capturingKeyboardKey) return false
-        if (keyCode == KeyEvent.KEYCODE_BACK) return false
+    private fun showVirtualKeyboard() {
+        val scroll = ScrollView(this)
+        val keyboard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+        }
+        scroll.addView(keyboard)
+        val rows = listOf(
+            listOf("1" to KeyEvent.KEYCODE_1, "2" to KeyEvent.KEYCODE_2, "3" to KeyEvent.KEYCODE_3, "4" to KeyEvent.KEYCODE_4, "5" to KeyEvent.KEYCODE_5, "6" to KeyEvent.KEYCODE_6, "7" to KeyEvent.KEYCODE_7, "8" to KeyEvent.KEYCODE_8, "9" to KeyEvent.KEYCODE_9, "0" to KeyEvent.KEYCODE_0),
+            listOf("Q" to KeyEvent.KEYCODE_Q, "W" to KeyEvent.KEYCODE_W, "E" to KeyEvent.KEYCODE_E, "R" to KeyEvent.KEYCODE_R, "T" to KeyEvent.KEYCODE_T, "Y" to KeyEvent.KEYCODE_Y, "U" to KeyEvent.KEYCODE_U, "I" to KeyEvent.KEYCODE_I, "O" to KeyEvent.KEYCODE_O, "P" to KeyEvent.KEYCODE_P),
+            listOf("A" to KeyEvent.KEYCODE_A, "S" to KeyEvent.KEYCODE_S, "D" to KeyEvent.KEYCODE_D, "F" to KeyEvent.KEYCODE_F, "G" to KeyEvent.KEYCODE_G, "H" to KeyEvent.KEYCODE_H, "J" to KeyEvent.KEYCODE_J, "K" to KeyEvent.KEYCODE_K, "L" to KeyEvent.KEYCODE_L),
+            listOf("Z" to KeyEvent.KEYCODE_Z, "X" to KeyEvent.KEYCODE_X, "C" to KeyEvent.KEYCODE_C, "V" to KeyEvent.KEYCODE_V, "B" to KeyEvent.KEYCODE_B, "N" to KeyEvent.KEYCODE_N, "M" to KeyEvent.KEYCODE_M),
+            listOf("SHIFT" to KeyEvent.KEYCODE_SHIFT_LEFT, "CTRL" to KeyEvent.KEYCODE_CTRL_LEFT, "ALT" to KeyEvent.KEYCODE_ALT_LEFT, "TAB" to KeyEvent.KEYCODE_TAB, "⌫" to KeyEvent.KEYCODE_DEL),
+            listOf("←" to KeyEvent.KEYCODE_DPAD_LEFT, "↑" to KeyEvent.KEYCODE_DPAD_UP, "↓" to KeyEvent.KEYCODE_DPAD_DOWN, "→" to KeyEvent.KEYCODE_DPAD_RIGHT, "ENTER" to KeyEvent.KEYCODE_ENTER, "ESC" to KeyEvent.KEYCODE_ESCAPE)
+        )
+        rows.forEach { row ->
+            val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            row.forEach { (label, code) ->
+                val key = Button(this).apply {
+                    text = label
+                    textSize = 11f
+                    setPadding(dp(2), 0, dp(2), 0)
+                    setOnClickListener { assignVirtualKey(code) }
+                }
+                line.addView(key, LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+                    setMargins(dp(2), dp(2), dp(2), dp(2))
+                })
+            }
+            keyboard.addView(line, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ))
+        }
+        val space = Button(this).apply {
+            text = "ESPACIO"
+            setOnClickListener { assignVirtualKey(KeyEvent.KEYCODE_SPACE) }
+        }
+        keyboard.addView(space, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(52)
+        ).apply { setMargins(dp(2), dp(4), dp(2), dp(2)) })
 
+        keyPickerDialog = AlertDialog.Builder(this)
+            .setTitle("Elige la tecla para ${BUTTON_NAMES[selectedButtonIndex]}")
+            .setView(scroll)
+            .setNegativeButton("Cancelar", null)
+            .create()
+        keyPickerDialog?.setOnDismissListener { keyPickerDialog = null }
+        keyPickerDialog?.show()
+    }
+
+    private fun assignVirtualKey(keyCode: Int) {
         val alreadyUsedBy = buttonKeys.indices.firstOrNull {
             it != selectedButtonIndex && buttonKeys[it] == keyCode
         }
         if (alreadyUsedBy != null) {
             status.text = "Esa tecla ya está asignada a ${BUTTON_NAMES[alreadyUsedBy]}. Elige otra."
-            return true
+            return
         }
-
         buttonKeys[selectedButtonIndex] = keyCode
         keyPreferences.edit().putInt("key_$selectedButtonIndex", keyCode).apply()
-        keyboardButton?.text = "Tecla del teclado: ${KeyEvent.keyCodeToString(keyCode)}"
-        capturingKeyboardKey = false
-        status.text = "${BUTTON_NAMES[selectedButtonIndex]} ahora se activa con ${KeyEvent.keyCodeToString(keyCode)}."
-        return true
+        keyboardButton?.text = "Tecla asignada: ${keyLabel(keyCode)}"
+        status.text = "${BUTTON_NAMES[selectedButtonIndex]} ahora se activa con ${keyLabel(keyCode)}."
+        keyPickerDialog?.dismiss()
+    }
+
+    private fun keyLabel(keyCode: Int): String = when (keyCode) {
+        KeyEvent.KEYCODE_SPACE -> "ESPACIO"
+        KeyEvent.KEYCODE_SHIFT_LEFT -> "SHIFT"
+        KeyEvent.KEYCODE_CTRL_LEFT -> "CTRL"
+        KeyEvent.KEYCODE_ALT_LEFT -> "ALT"
+        KeyEvent.KEYCODE_DPAD_UP -> "FLECHA ARRIBA"
+        KeyEvent.KEYCODE_DPAD_DOWN -> "FLECHA ABAJO"
+        KeyEvent.KEYCODE_DPAD_LEFT -> "FLECHA IZQUIERDA"
+        KeyEvent.KEYCODE_DPAD_RIGHT -> "FLECHA DERECHA"
+        KeyEvent.KEYCODE_DEL -> "RETROCESO"
+        KeyEvent.KEYCODE_ESCAPE -> "ESC"
+        else -> KeyEvent.keyCodeToString(keyCode).removePrefix("KEYCODE_")
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (captureConfiguredKey(keyCode)) return true
         val button = keyToButton(keyCode) ?: return super.onKeyDown(keyCode, event)
         NativeBridge.nativeSetButton(button, true)
         return true
@@ -293,7 +347,7 @@ class MainActivity : Activity() {
     private fun keyToButton(keyCode: Int): Int? = buttonKeys.indexOf(keyCode).takeIf { it >= 0 }
 
     override fun onDestroy() {
-        capturingKeyboardKey = false
+        keyPickerDialog?.dismiss()
         keyDialog?.dismiss()
         stopEmulation()
         if (::emulationThread.isInitialized) emulationThread.quitSafely()
