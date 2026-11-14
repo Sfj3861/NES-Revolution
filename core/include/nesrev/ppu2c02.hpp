@@ -15,7 +15,7 @@ public:
     explicit Ppu2C02(Mapper0& mapper) noexcept;
 
     [[nodiscard]] std::uint8_t cpu_read(std::uint16_t address) noexcept;
-    void cpu_write(std::uint16_t address, std::uint8_t value) noexcept;
+    void cpu_write(std::uint16_t address, std::uint8_t value) noexcept;\n    void dma_write_oam(std::uint8_t value) noexcept;
 
     [[nodiscard]] std::uint8_t ppu_read(std::uint16_t address) const noexcept;
     void ppu_write(std::uint16_t address, std::uint8_t value) noexcept;

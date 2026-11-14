@@ -135,6 +135,29 @@ int main() {
     assert(indexed_cpu.state().a == 0x5A);
     assert(indexed_cpu.state().cycles == 14);
 
+    // OAM DMA copies an entire CPU page to PPU OAM and stalls the CPU.
+    CpuBus dma_bus;
+    Ppu2C02 dma_ppu(dma_bus.mapper0());
+    dma_bus.attach_ppu(&dma_ppu);
+    dma_ppu.cpu_write(0x2003, 0x00);
+    for (std::uint16_t i = 0; i < 256U; ++i) {
+        dma_bus.write(static_cast<std::uint16_t>(0x0200U + i), static_cast<std::uint8_t>(i));
+    }
+    const std::array<std::uint8_t, 5> dma_program{0xA9,0x02,0x8D,0x14,0x40};
+    dma_bus.load(0x8000, dma_program.data(), static_cast<std::uint32_t>(dma_program.size()));
+    dma_bus.set_reset_vector(0x8000);
+    Cpu6502 dma_cpu(dma_bus);
+    dma_cpu.reset();
+    assert(dma_cpu.step()); // LDA #$02
+    assert(dma_cpu.step()); // STA $4014 -> DMA
+    assert(dma_cpu.state().cycles == 527U); // 7 reset + 2 + 4 + 514 DMA cycles
+    dma_ppu.cpu_write(0x2003, 0x00);
+    assert(dma_ppu.cpu_read(0x2004) == 0x00);
+    dma_ppu.cpu_write(0x2003, 0x7F);
+    assert(dma_ppu.cpu_read(0x2004) == 0x7F);
+    dma_ppu.cpu_write(0x2003, 0xFF);
+    assert(dma_ppu.cpu_read(0x2004) == 0xFF);
+
     // APU pulse channel produces samples after its registers and timer are set.
     Apu2A03 test_apu(48000U);
     test_apu.write(0x4015, 0x01);

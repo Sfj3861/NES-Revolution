@@ -23,7 +23,7 @@ public:
     [[nodiscard]] Mapper0& mapper0() noexcept { return mapper0_; }
     void attach_ppu(Ppu2C02* ppu) noexcept { ppu_ = ppu; }
     void attach_apu(Apu2A03* apu) noexcept { apu_ = apu; }
-    void tick_cpu_cycles(std::uint32_t cycles) noexcept;
+    void tick_cpu_cycles(std::uint32_t cycles) noexcept;\n    void reset_timing(std::uint64_t initial_cycles = 0) noexcept { cpu_cycles_ = initial_cycles; }\n    [[nodiscard]] std::uint16_t consume_dma_stall_cycles(std::uint8_t instruction_cycles) noexcept;
     [[nodiscard]] bool consume_ppu_nmi() noexcept;
     void attach_controllers(StandardController* first, StandardController* second) noexcept;
     [[nodiscard]] std::uint8_t ppu_read_cartridge(std::uint16_t address) const noexcept;
@@ -41,7 +41,7 @@ private:
     Ppu2C02* ppu_{nullptr};
     Apu2A03* apu_{nullptr};
     StandardController* controller1_{nullptr};
-    StandardController* controller2_{nullptr};
+    StandardController* controller2_{nullptr};\n    std::uint64_t cpu_cycles_{0};\n    bool dma_pending_{false};
 };
 
 struct CpuState {

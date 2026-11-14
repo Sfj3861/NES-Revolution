@@ -49,6 +49,16 @@ void CpuBus::write(std::uint16_t address, std::uint8_t value) noexcept {
         if (controller2_ != nullptr) controller2_->write_strobe(value);
         return;
     }
+    if (address == 0x4014U) {
+        if (ppu_ != nullptr) {
+            const auto source = static_cast<std::uint16_t>(value) << 8U;
+            for (std::uint16_t i = 0; i < 256U; ++i) {
+                ppu_->dma_write_oam(read(static_cast<std::uint16_t>(source + i)));
+            }
+            dma_pending_ = true;
+        }
+        return;
+    }
     if (address >= 0x4000U && address <= 0x4017U && apu_ != nullptr) {
         apu_->write(address, value);
         return;
@@ -95,12 +105,23 @@ void CpuBus::ppu_write_cartridge(const std::uint16_t address, const std::uint8_t
 }
 
 void CpuBus::tick_cpu_cycles(const std::uint32_t cycles) noexcept {
+    cpu_cycles_ += cycles;
     if (ppu_ != nullptr) {
         ppu_->clock_cpu_cycles(cycles);
     }
     if (apu_ != nullptr) {
         apu_->clock_cpu_cycles(cycles);
     }
+}
+
+std::uint16_t CpuBus::consume_dma_stall_cycles(const std::uint8_t instruction_cycles) noexcept {
+    if (!dma_pending_) {
+        return 0;
+    }
+    dma_pending_ = false;
+    // OAM DMA takes 513 cycles plus one alignment cycle when it begins on
+    // an odd CPU cycle. The initiating instruction's cost is included here.
+    return static_cast<std::uint16_t>(513U + ((cpu_cycles_ + instruction_cycles) & 1U));
 }
 
 bool CpuBus::consume_ppu_nmi() noexcept {
@@ -145,6 +166,7 @@ void Cpu6502::reset() noexcept {
     state_.pc = static_cast<std::uint16_t>(bus_.read(0xFFFC) |
         (static_cast<std::uint16_t>(bus_.read(0xFFFD)) << 8));
     state_.cycles = 7; nmi_pending_ = false; irq_line_ = false;
+    bus_.reset_timing(state_.cycles);
 }
 void Cpu6502::interrupt(std::uint16_t vector, bool is_brk) noexcept {
     push(static_cast<std::uint8_t>(state_.pc >> 8));
@@ -366,8 +388,9 @@ bool Cpu6502::step() noexcept {
     default: state_.pc=start; return false;
     }
     state_.status |= U;
-    state_.cycles += cost;
-    bus_.tick_cpu_cycles(cost);
+    const auto dma_stall = bus_.consume_dma_stall_cycles(cost);
+    state_.cycles += static_cast<std::uint64_t>(cost) + dma_stall;
+    bus_.tick_cpu_cycles(static_cast<std::uint32_t>(cost) + dma_stall);
     return true;
 }
 

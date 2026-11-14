@@ -168,6 +168,10 @@ void Ppu2C02::cpu_write(const std::uint16_t address, const std::uint8_t value) n
     }
 }
 
+void Ppu2C02::dma_write_oam(const std::uint8_t value) noexcept {
+    oam_[oam_address_++] = value;
+}
+
 void Ppu2C02::increment_vram_address() noexcept {
     vram_address_ = static_cast<std::uint16_t>((vram_address_ +
         ((ctrl_ & 0x04U) != 0 ? 32U : 1U)) & 0x7FFFU);
