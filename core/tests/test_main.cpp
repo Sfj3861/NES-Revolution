@@ -3,6 +3,7 @@
 #include "nesrev/cpu6502.hpp"
 #include "nesrev/input_queue.hpp"
 #include "nesrev/ppu2c02.hpp"
+#include "nesrev/nes_machine.hpp"
 
 #include <array>
 #include <cassert>
@@ -133,6 +134,23 @@ int main() {
     assert(indexed_cpu.state().a == 0x5A);
     assert(indexed_cpu.state().cycles == 14);
 
-    std::cout << "NES Revolution core tests passed\n";
+    // NesMachine loads an NROM ROM, resets the CPU from its cartridge vector,
+    // and advances a complete PPU frame.
+    std::vector<std::uint8_t> machine_rom(16U + 16U * 1024U, 0);
+    machine_rom[0] = 'N'; machine_rom[1] = 'E'; machine_rom[2] = 'S'; machine_rom[3] = 0x1A;
+    machine_rom[4] = 1; machine_rom[5] = 0;
+    machine_rom[16] = 0x4C; machine_rom[17] = 0x00; machine_rom[18] = 0x80; // JMP $8000
+    machine_rom[16U + 0x3FFCU] = 0x00;
+    machine_rom[16U + 0x3FFDU] = 0x80;
+    NesMachine machine;
+    assert(machine.load_rom(machine_rom));
+    assert(machine.loaded());
+    assert(machine.cpu_state().pc == 0x8000);
+    assert(machine.run_frame());
+    assert(machine.cpu_state().cycles > 7U);
+    assert(!machine.error().size());
+
+    std::cout << "NES Revolution core tests passed
+";
     return 0;
 }

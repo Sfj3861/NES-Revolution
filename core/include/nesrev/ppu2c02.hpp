@@ -20,6 +20,7 @@ public:
     [[nodiscard]] std::uint8_t ppu_read(std::uint16_t address) const noexcept;
     void ppu_write(std::uint16_t address, std::uint8_t value) noexcept;
 
+    void reset() noexcept;
     void clock() noexcept;
     void clock_cpu_cycles(std::uint32_t cycles) noexcept;
 

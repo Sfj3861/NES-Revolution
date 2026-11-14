@@ -21,6 +21,7 @@ NES Revolution aims to combine accurate NES hardware emulation with a modern And
 | Module | Responsibility | Status |
 |---|---|---|
 | Core types | Shared timing and hardware types | Initial |
+| Machine coordinator | ROM loading, CPU/PPU execution and frame output | Initial; NROM frame loop |
 | Cartridge | iNES header parsing and mapper metadata | Initial |
 | Controller/input | Timestamped host events and NES serial port | Initial |
 | CPU (Ricoh 2A03) | 6502 instruction execution and cycle timing | Initial; validation ongoing |

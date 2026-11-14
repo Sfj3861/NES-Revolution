@@ -291,6 +291,29 @@ void Ppu2C02::render_pixel(const std::uint16_t x, const std::uint16_t y) noexcep
     framebuffer_[static_cast<std::size_t>(y) * Width + x] = color(output_color);
 }
 
+void Ppu2C02::reset() noexcept {
+    nametable_ram_.fill(0);
+    palette_ram_.fill(0);
+    oam_.fill(0);
+    ctrl_ = 0;
+    mask_ = 0;
+    status_ = 0;
+    oam_address_ = 0;
+    open_bus_ = 0;
+    read_buffer_ = 0;
+    vram_address_ = 0;
+    temp_address_ = 0;
+    fine_x_ = 0;
+    write_latch_ = false;
+    scroll_x_ = 0;
+    scroll_y_ = 0;
+    nmi_pending_ = false;
+    frame_ready_ = false;
+    scanline_ = 0;
+    dot_ = 0;
+    framebuffer_.fill(kNesPalette[0]);
+}
+
 void Ppu2C02::clock() noexcept {
     if (scanline_ == 261U && dot_ == 1U) {
         status_ &= static_cast<std::uint8_t>(~0xE0U);

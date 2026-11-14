@@ -2,6 +2,7 @@ add_library(nesrev_core STATIC
     src/cartridge.cpp
     src/mapper0.cpp
     src/ppu2c02.cpp
+    src/nes_machine.cpp
     src/controller.cpp
     src/input_queue.cpp
     src/cpu6502.cpp

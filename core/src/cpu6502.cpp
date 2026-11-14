@@ -1,4 +1,10 @@
-#include "nesrev/cpu6502.hpp"
+#
+
+void CpuBus::attach_controllers(StandardController* first, StandardController* second) noexcept {
+    controller1_ = first;
+    controller2_ = second;
+}
+include "nesrev/cpu6502.hpp"
 #include "nesrev/ppu2c02.hpp"
 
 namespace nesrev {
@@ -11,6 +17,12 @@ std::uint8_t CpuBus::read(std::uint16_t address) const noexcept {
         return ppu_ != nullptr
             ? ppu_->cpu_read(static_cast<std::uint16_t>(0x2000U + (address & 0x0007U)))
             : memory_[0x2000U + (address & 0x0007U)];
+    }
+    if (address == 0x4016U && controller1_ != nullptr) {
+        return static_cast<std::uint8_t>(0x40U | controller1_->read());
+    }
+    if (address == 0x4017U && controller2_ != nullptr) {
+        return static_cast<std::uint8_t>(0x40U | controller2_->read());
     }
     if (address >= 0x6000U && address < 0x8000U) {
         return prg_ram_[address - 0x6000U];
@@ -32,6 +44,11 @@ void CpuBus::write(std::uint16_t address, std::uint8_t value) noexcept {
         } else {
             memory_[0x2000U + (address & 0x0007U)] = value;
         }
+        return;
+    }
+    if (address == 0x4016U) {
+        if (controller1_ != nullptr) controller1_->write_strobe(value);
+        if (controller2_ != nullptr) controller2_->write_strobe(value);
         return;
     }
     if (address >= 0x6000U && address < 0x8000U) {
@@ -265,6 +282,7 @@ bool Cpu6502::step() noexcept {
     case 0x7D: { const auto base=fetch16(); address=static_cast<std::uint16_t>(base+state_.x); adc(bus_.read(address)); cost=static_cast<std::uint8_t>(4+(page_crossed(base,address)?1:0)); break; }
     case 0x79: { const auto base=fetch16(); address=static_cast<std::uint16_t>(base+state_.y); adc(bus_.read(address)); cost=static_cast<std::uint8_t>(4+(page_crossed(base,address)?1:0)); break; }
     case 0x65: adc(bus_.read(zp())); cost=3; break;
+    case 0x6D: adc(bus_.read(fetch16())); cost=4; break;
     case 0x75: adc(bus_.read(zpx())); cost=4; break;
     case 0x61: adc(bus_.read(indx())); cost=6; break;
     case 0x71: address=indy(); adc(bus_.read(address)); cost=static_cast<std::uint8_t>(5+(indirect_y_crossed?1:0)); break;

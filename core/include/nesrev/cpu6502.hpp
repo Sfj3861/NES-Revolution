@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nesrev/mapper0.hpp"
+#include "nesrev/controller.hpp"
 
 #include <array>
 #include <cstdint>
@@ -22,6 +23,7 @@ public:
     void attach_ppu(Ppu2C02* ppu) noexcept { ppu_ = ppu; }
     void tick_cpu_cycles(std::uint32_t cycles) noexcept;
     [[nodiscard]] bool consume_ppu_nmi() noexcept;
+    void attach_controllers(StandardController* first, StandardController* second) noexcept;
     [[nodiscard]] std::uint8_t ppu_read_cartridge(std::uint16_t address) const noexcept;
     void ppu_write_cartridge(std::uint16_t address, std::uint8_t value) noexcept;
     [[nodiscard]] Mirroring cartridge_mirroring() const noexcept { return mapper0_.mirroring(); }
@@ -35,6 +37,8 @@ private:
     std::array<std::uint8_t, 0x10000> memory_{};
     Mapper0 mapper0_{};
     Ppu2C02* ppu_{nullptr};
+    StandardController* controller1_{nullptr};
+    StandardController* controller2_{nullptr};
 };
 
 struct CpuState {
