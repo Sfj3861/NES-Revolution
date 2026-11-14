@@ -5,6 +5,8 @@ on:
     paths:
       - 'android/**'
       - 'CMakeLists.txt'
+      - '*.gradle.kts'
+      - 'gradle.properties'
       - 'core/**'
       - '.github/workflows/android-ci.yml'
   pull_request:
